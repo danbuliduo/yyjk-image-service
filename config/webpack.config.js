@@ -1,7 +1,8 @@
 const path = require('path');
-
 const fs = require('fs');
 
+// 把项目根目录的 app.json 复制到上一级目录，
+// 供 @lark-opdev/block-bitable-webpack-utils 读取
 const appJsonSrc = path.resolve(__dirname, '..', 'app.json');
 const appJsonDest = path.resolve(__dirname, '..', '..', 'app.json');
 try {
@@ -15,17 +16,26 @@ try {
   console.warn('⚠️ 复制 app.json 失败:', e.message);
 }
 
-
-
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { ESBuildMinifyPlugin } = require('esbuild-loader');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const WebpackBar = require('webpackbar');
-const {
-  BitableAppWebpackPlugin,
-  opdevMiddleware
-} = require('@lark-opdev/block-bitable-webpack-utils');
+
+// 条件加载飞书 Webpack 工具，避免在 Vercel 等环境因内部依赖缺失而报错
+let BitableAppWebpackPlugin = null;
+let opdevMiddleware = null;
+try {
+  const utils = require('@lark-opdev/block-bitable-webpack-utils');
+  BitableAppWebpackPlugin = utils.BitableAppWebpackPlugin;
+  opdevMiddleware = utils.opdevMiddleware;
+  console.log('✅ 已加载 @lark-opdev/block-bitable-webpack-utils');
+} catch (e) {
+  console.warn(
+    '⚠️ 未能加载 @lark-opdev/block-bitable-webpack-utils (Vercel 生产构建中可忽略):',
+    e.message
+  );
+}
 
 const cwd = process.cwd();
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -95,9 +105,16 @@ const config = {
     ...(isDevelopment
       ? [new ReactRefreshWebpackPlugin(), new WebpackBar()]
       : [new MiniCssExtractPlugin()]),
-    new BitableAppWebpackPlugin({
-      // open: true, // 控制是否自动打开多维表格
-    }),
+
+    // 仅在 BitableAppWebpackPlugin 可用时添加
+    ...(BitableAppWebpackPlugin
+      ? [
+          new BitableAppWebpackPlugin({
+            // open: true, // 控制是否自动打开多维表格
+          }),
+        ]
+      : []),
+
     new HtmlWebpackPlugin({
       filename: 'index.html',
       template: './public/index.html',
@@ -134,7 +151,10 @@ const config = {
           if (!devServer || !devServer.app) {
             throw new Error('webpack-dev-server is not defined');
           }
-          middlewares.push(opdevMiddleware(devServer))
+          // 仅在 opdevMiddleware 可用时添加
+          if (opdevMiddleware) {
+            middlewares.push(opdevMiddleware(devServer));
+          }
           return middlewares;
         },
       },
@@ -145,4 +165,5 @@ const config = {
     },
   },
 };
+
 module.exports = config;
