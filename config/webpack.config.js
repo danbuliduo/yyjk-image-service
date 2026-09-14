@@ -1,4 +1,22 @@
 const path = require('path');
+
+const fs = require('fs');
+
+const appJsonSrc = path.resolve(__dirname, '..', 'app.json');
+const appJsonDest = path.resolve(__dirname, '..', '..', 'app.json');
+try {
+  if (fs.existsSync(appJsonSrc)) {
+    fs.copyFileSync(appJsonSrc, appJsonDest);
+    console.log('✅ 已将 app.json 复制到:', appJsonDest);
+  } else {
+    console.warn('⚠️ 项目根目录没有 app.json:', appJsonSrc);
+  }
+} catch (e) {
+  console.warn('⚠️ 复制 app.json 失败:', e.message);
+}
+
+
+
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { ESBuildMinifyPlugin } = require('esbuild-loader');
